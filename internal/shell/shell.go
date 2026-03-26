@@ -96,8 +96,14 @@ func (s *Shell) Run() {
 			fmt.Println("Goodbye.")
 			return
 		default:
+			// Strip trailing "run" from args if present.
+			// e.g. "recon.iam.list-principals run -p proj" -> run recon.iam.list-principals -p proj
+			runArgs := args
+			if len(runArgs) > 0 && strings.ToLower(runArgs[0]) == "run" {
+				runArgs = runArgs[1:]
+			}
 			if _, ok := s.registry.Get(cmd); ok {
-				s.cmdRun(append([]string{cmd}, args...))
+				s.cmdRun(append([]string{cmd}, runArgs...))
 			} else {
 				output.Error("Unknown command: %s. Type 'help' for available commands.", cmd)
 			}
@@ -130,6 +136,21 @@ func (s *Shell) cmdHelp() {
 
 func (s *Shell) cmdModules(args []string) {
 	if len(args) > 0 {
+		// If the last arg is "run", treat as: run <module> [remaining flags].
+		// e.g. "modules recon.storage.probe-buckets run" -> run recon.storage.probe-buckets
+		if len(args) >= 2 && strings.ToLower(args[len(args)-1]) == "run" {
+			s.cmdRun(args[:len(args)-1])
+			return
+		}
+		// If the single arg is an exact module match, show info and hint to run.
+		if len(args) == 1 {
+			if mod, ok := s.registry.Get(args[0]); ok {
+				s.registry.PrintModules([]module.Module{mod})
+				output.Info("To run: run %s -p <project>", mod.Info().Name)
+				return
+			}
+		}
+
 		term := strings.Join(args, " ")
 		// Check if searching by tactic.
 		tactic := module.Tactic(term)
