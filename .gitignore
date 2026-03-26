@@ -1,0 +1,7 @@
+build/
+*.exe
+*.db
+/nimbus
+/nimbus-*
+*.key.json
+.nimbus/

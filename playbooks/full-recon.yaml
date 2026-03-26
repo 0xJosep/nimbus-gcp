@@ -1,0 +1,7 @@
+name: full-recon
+description: Complete reconnaissance of target GCP projects
+steps:
+  - module: recon.iam.list-principals
+  - module: recon.iam.list-bindings
+  - module: recon.compute.scan-instances
+  - module: recon.storage.probe-buckets

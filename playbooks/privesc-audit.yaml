@@ -1,0 +1,6 @@
+name: privesc-audit
+description: Check for privilege escalation paths in target projects
+steps:
+  - module: recon.iam.list-principals
+  - module: recon.iam.list-bindings
+  - module: recon.compute.scan-instances

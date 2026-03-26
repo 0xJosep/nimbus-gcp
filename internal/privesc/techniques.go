@@ -1,0 +1,188 @@
+package privesc
+
+// Technique represents a known GCP privilege escalation method.
+type Technique struct {
+	ID          string
+	Name        string
+	Permissions []string
+	TargetType  string
+	Description string
+	Severity    string
+	Reference   string
+}
+
+// KnownTechniques contains all embedded GCP privilege escalation techniques.
+var KnownTechniques = []Technique{
+	{
+		ID:          "NIM-001",
+		Name:        "SA Key Creation",
+		Permissions: []string{"iam.serviceAccountKeys.create"},
+		TargetType:  "service_account",
+		Description: "Create a new key for any service account the identity has this permission on, gaining persistent access as that SA.",
+		Severity:    "CRITICAL",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-002",
+		Name:        "SA Impersonation via Token Generation",
+		Permissions: []string{"iam.serviceAccounts.getAccessToken"},
+		TargetType:  "service_account",
+		Description: "Generate an access token for a target SA, effectively impersonating it without needing its key.",
+		Severity:    "CRITICAL",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-003",
+		Name:        "SA Impersonation via Implicit Delegation",
+		Permissions: []string{"iam.serviceAccounts.implicitDelegation"},
+		TargetType:  "service_account",
+		Description: "Act as an intermediate in a delegation chain to impersonate a target SA through a chain of SAs.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-004",
+		Name:        "SA Impersonation via signBlob",
+		Permissions: []string{"iam.serviceAccounts.signBlob"},
+		TargetType:  "service_account",
+		Description: "Sign arbitrary data as a SA, which can be used to create signed URLs or forge tokens.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-005",
+		Name:        "SA Impersonation via signJwt",
+		Permissions: []string{"iam.serviceAccounts.signJwt"},
+		TargetType:  "service_account",
+		Description: "Sign JWTs as a SA to generate access tokens for that identity.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-006",
+		Name:        "Project IAM Policy Modification",
+		Permissions: []string{"resourcemanager.projects.setIamPolicy"},
+		TargetType:  "project",
+		Description: "Modify the project-level IAM policy to grant yourself or another identity any role.",
+		Severity:    "CRITICAL",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-007",
+		Name:        "Org IAM Policy Modification",
+		Permissions: []string{"resourcemanager.organizations.setIamPolicy"},
+		TargetType:  "organization",
+		Description: "Modify organization-level IAM policy to grant yourself roles across all projects.",
+		Severity:    "CRITICAL",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-008",
+		Name:        "Custom Role Update",
+		Permissions: []string{"iam.roles.update"},
+		TargetType:  "role",
+		Description: "Update an existing custom role to add powerful permissions that are then inherited by all bound identities.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-009",
+		Name:        "Compute Startup Script Injection",
+		Permissions: []string{"compute.instances.setMetadata"},
+		TargetType:  "instance",
+		Description: "Set a startup script on a VM instance to execute arbitrary code as root on next boot.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-010",
+		Name:        "Compute SSH Key Injection",
+		Permissions: []string{"compute.instances.setMetadata", "compute.projects.setCommonInstanceMetadata"},
+		TargetType:  "instance",
+		Description: "Inject SSH keys into instance or project metadata to gain SSH access to VMs.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-1/",
+	},
+	{
+		ID:          "NIM-011",
+		Name:        "Cloud Function Deploy as Privileged SA",
+		Permissions: []string{"cloudfunctions.functions.create", "iam.serviceAccounts.actAs"},
+		TargetType:  "service_account",
+		Description: "Deploy a Cloud Function running as a privileged SA to execute code with that SA's permissions.",
+		Severity:    "CRITICAL",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-2/",
+	},
+	{
+		ID:          "NIM-012",
+		Name:        "Cloud Function Update",
+		Permissions: []string{"cloudfunctions.functions.update"},
+		TargetType:  "function",
+		Description: "Update an existing function's code to execute arbitrary commands under its SA identity.",
+		Severity:    "HIGH",
+		Reference:   "https://rhinosecuritylabs.com/gcp/privilege-escalation-google-cloud-platform-part-2/",
+	},
+	{
+		ID:          "NIM-013",
+		Name:        "Cloud Run Deploy as Privileged SA",
+		Permissions: []string{"run.services.create", "iam.serviceAccounts.actAs"},
+		TargetType:  "service_account",
+		Description: "Deploy a Cloud Run service as a privileged SA to execute code with elevated permissions.",
+		Severity:    "CRITICAL",
+	},
+	{
+		ID:          "NIM-014",
+		Name:        "Storage HMAC Key Creation",
+		Permissions: []string{"storage.hmacKeys.create"},
+		TargetType:  "service_account",
+		Description: "Create HMAC keys for a SA's storage access, providing persistent S3-compatible credentials.",
+		Severity:    "MEDIUM",
+	},
+	{
+		ID:          "NIM-015",
+		Name:        "SA actAs via Compute Instance Create",
+		Permissions: []string{"compute.instances.create", "iam.serviceAccounts.actAs"},
+		TargetType:  "service_account",
+		Description: "Create a new VM attached to a privileged SA, then access its metadata token.",
+		Severity:    "CRITICAL",
+	},
+	{
+		ID:          "NIM-016",
+		Name:        "Secret Access",
+		Permissions: []string{"secretmanager.versions.access"},
+		TargetType:  "secret",
+		Description: "Access secret values which may contain credentials, API keys, or other sensitive data.",
+		Severity:    "HIGH",
+	},
+	{
+		ID:          "NIM-017",
+		Name:        "Cloud SQL Export to Attacker Bucket",
+		Permissions: []string{"cloudsql.instances.export"},
+		TargetType:  "cloudsql_instance",
+		Description: "Export a Cloud SQL database to an attacker-controlled bucket for data exfiltration.",
+		Severity:    "HIGH",
+	},
+	{
+		ID:          "NIM-018",
+		Name:        "Folder IAM Policy Modification",
+		Permissions: []string{"resourcemanager.folders.setIamPolicy"},
+		TargetType:  "folder",
+		Description: "Modify folder-level IAM policy to grant roles across multiple projects.",
+		Severity:    "CRITICAL",
+	},
+	{
+		ID:          "NIM-019",
+		Name:        "Service Account Token via OS Login",
+		Permissions: []string{"compute.instances.osLogin"},
+		TargetType:  "instance",
+		Description: "Use OS Login to SSH into a VM and access its attached SA token from the metadata server.",
+		Severity:    "MEDIUM",
+	},
+	{
+		ID:          "NIM-020",
+		Name:        "Logging Sink Disable for Evasion",
+		Permissions: []string{"logging.sinks.delete", "logging.sinks.update"},
+		TargetType:  "logging_sink",
+		Description: "Disable or delete log sinks to prevent detection of malicious activity.",
+		Severity:    "HIGH",
+	},
+}
