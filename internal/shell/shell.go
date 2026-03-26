@@ -381,9 +381,27 @@ func (s *Shell) cmdFindings(args []string) {
 		return
 	}
 
-	// Show summary.
+	// Group findings by project.
+	projectFindings := make(map[string][]db.Finding)
+	var projectOrder []string
+	projectSeen := make(map[string]bool)
+	for _, f := range findings {
+		proj := f.Project
+		if proj == "" {
+			proj = "(global)"
+		}
+		if !projectSeen[proj] {
+			projectSeen[proj] = true
+			projectOrder = append(projectOrder, proj)
+		}
+		projectFindings[proj] = append(projectFindings[proj], f)
+	}
+
+	// Overall severity summary.
 	counts, _ := s.store.CountFindingsBySeverity(s.ws.ID)
 	fmt.Println()
+	fmt.Printf("  %s%sOverall Summary%s (%d findings across %d project(s))\n\n",
+		output.Bold, output.Cyan, output.Reset, len(findings), len(projectOrder))
 	for _, sev := range []string{"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"} {
 		if c, ok := counts[sev]; ok {
 			color := output.Dim
@@ -402,12 +420,48 @@ func (s *Shell) cmdFindings(args []string) {
 	}
 	fmt.Println()
 
-	headers := []string{"SEVERITY", "MODULE", "TITLE", "RESOURCE", "PROJECT"}
-	var rows [][]string
-	for _, f := range findings {
-		rows = append(rows, []string{f.Severity, f.Module, f.Title, f.Resource, f.Project})
+	// Show findings grouped by project.
+	for _, proj := range projectOrder {
+		pFindings := projectFindings[proj]
+
+		// Per-project severity counts.
+		projSev := make(map[string]int)
+		for _, f := range pFindings {
+			projSev[f.Severity]++
+		}
+
+		// Project header with severity summary.
+		sevSummary := ""
+		for _, sev := range []string{"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"} {
+			if c, ok := projSev[sev]; ok {
+				color := output.Dim
+				switch sev {
+				case "CRITICAL":
+					color = output.Red + output.Bold
+				case "HIGH":
+					color = output.Red
+				case "MEDIUM":
+					color = output.Yellow
+				case "LOW":
+					color = output.Blue
+				}
+				if sevSummary != "" {
+					sevSummary += ", "
+				}
+				sevSummary += fmt.Sprintf("%s%d %s%s", color, c, sev, output.Reset)
+			}
+		}
+
+		fmt.Printf("  %s%s%s%s — %d findings (%s)\n",
+			output.Bold, output.Yellow, proj, output.Reset, len(pFindings), sevSummary)
+
+		headers := []string{"SEVERITY", "MODULE", "TITLE", "RESOURCE"}
+		var rows [][]string
+		for _, f := range pFindings {
+			rows = append(rows, []string{f.Severity, f.Module, f.Title, f.Resource})
+		}
+		output.Table(headers, rows)
 	}
-	output.Table(headers, rows)
 }
 
 func (s *Shell) cmdPaths(args []string) {
