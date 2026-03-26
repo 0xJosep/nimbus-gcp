@@ -16,6 +16,7 @@ import (
 	"github.com/user/nimbus/internal/workspace"
 
 	// Register modules -- recon.
+	_ "github.com/user/nimbus/modules/recon/all"
 	_ "github.com/user/nimbus/modules/recon/bigquery"
 	_ "github.com/user/nimbus/modules/recon/cloudsql"
 	_ "github.com/user/nimbus/modules/recon/compute"
