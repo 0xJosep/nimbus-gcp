@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,12 +53,17 @@ func New(
 func (s *Shell) Run() {
 	completer := newCompleter(s.registry)
 
+	homeDir, _ := os.UserHomeDir()
+	dataDir := filepath.Join(homeDir, ".nimbus")
+	os.MkdirAll(dataDir, 0o755)
+
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          s.buildPrompt(),
-		AutoComplete:    completer,
-		InterruptPrompt: "^C",
-		EOFPrompt:       "exit",
-		HistoryFile:     "",
+		Prompt:            s.buildPrompt(),
+		AutoComplete:      completer,
+		InterruptPrompt:   "^C",
+		EOFPrompt:         "exit",
+		HistoryFile:       filepath.Join(dataDir, "history"),
+		HistorySearchFold: true,
 	})
 	if err != nil {
 		// Fallback to basic reader if readline fails.

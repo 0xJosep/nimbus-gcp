@@ -5,3 +5,4 @@ build/
 /nimbus-*
 *.key.json
 .nimbus/
+.claude/

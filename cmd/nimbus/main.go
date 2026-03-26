@@ -24,10 +24,14 @@ import (
 	_ "github.com/user/nimbus/modules/recon/functions"
 	_ "github.com/user/nimbus/modules/recon/gke"
 	_ "github.com/user/nimbus/modules/recon/iam"
+	_ "github.com/user/nimbus/modules/recon/kms"
 	_ "github.com/user/nimbus/modules/recon/logging"
 	_ "github.com/user/nimbus/modules/recon/network"
+	_ "github.com/user/nimbus/modules/recon/orgpolicy"
+	_ "github.com/user/nimbus/modules/recon/pubsub"
 	_ "github.com/user/nimbus/modules/recon/resourcemanager"
 	_ "github.com/user/nimbus/modules/recon/run"
+	_ "github.com/user/nimbus/modules/recon/scheduler"
 	_ "github.com/user/nimbus/modules/recon/secrets"
 	_ "github.com/user/nimbus/modules/recon/storage"
 
@@ -38,7 +42,10 @@ import (
 
 	// Register modules -- other tactics.
 	_ "github.com/user/nimbus/modules/credential/compute"
+	_ "github.com/user/nimbus/modules/credential/iam"
+	_ "github.com/user/nimbus/modules/defense_evasion/iam"
 	_ "github.com/user/nimbus/modules/defense_evasion/logging"
+	_ "github.com/user/nimbus/modules/exfil/bigquery"
 	_ "github.com/user/nimbus/modules/exfil/secrets"
 	_ "github.com/user/nimbus/modules/exfil/storage"
 	_ "github.com/user/nimbus/modules/initial_access/functions"
@@ -47,6 +54,7 @@ import (
 	_ "github.com/user/nimbus/modules/persist/iam"
 
 	// Register modules -- analyze.
+	_ "github.com/user/nimbus/modules/analyze/compliance"
 	_ "github.com/user/nimbus/modules/analyze/iam"
 	_ "github.com/user/nimbus/modules/analyze/paths"
 	_ "github.com/user/nimbus/modules/analyze/summary"
