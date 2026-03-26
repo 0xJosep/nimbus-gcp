@@ -35,6 +35,18 @@ make build
 
 The binary will be at `build/nimbus`.
 
+### Build and install to PATH
+
+```bash
+# Linux / macOS — installs to /usr/local/bin
+make install
+
+# Any platform (Linux, macOS, Windows) — auto-detects OS and adds to PATH
+bash install.sh
+```
+
+On Windows this installs to `%USERPROFILE%\.nimbus\bin\` and adds it to your user PATH. Restart your terminal after install.
+
 ### Cross-compile
 
 ```bash

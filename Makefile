@@ -3,7 +3,7 @@ VERSION := 0.1.0
 BUILD_DIR := build
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build build-all clean test lint install
+.PHONY: all build build-all clean test lint install uninstall
 
 all: build
 
@@ -41,7 +41,36 @@ lint:
 	go vet ./...
 
 install: build
-	cp $(BUILD_DIR)/$(APP_NAME) $(GOPATH)/bin/$(APP_NAME)
+	@if [ "$$(uname -s 2>/dev/null)" = "Linux" ] || [ "$$(uname -s 2>/dev/null)" = "Darwin" ]; then \
+		echo "Installing to /usr/local/bin/$(APP_NAME)..."; \
+		sudo cp $(BUILD_DIR)/$(APP_NAME) /usr/local/bin/$(APP_NAME); \
+		sudo chmod +x /usr/local/bin/$(APP_NAME); \
+		echo "Done. Run 'nimbus' from anywhere."; \
+	elif [ -n "$$USERPROFILE" ]; then \
+		INSTALL_DIR="$$USERPROFILE/.nimbus/bin"; \
+		mkdir -p "$$INSTALL_DIR"; \
+		cp $(BUILD_DIR)/$(APP_NAME) "$$INSTALL_DIR/$(APP_NAME).exe"; \
+		powershell -Command "\
+			$$current = [Environment]::GetEnvironmentVariable('Path', 'User'); \
+			if ($$current -notlike '*$$env:USERPROFILE\\.nimbus\\bin*') { \
+				[Environment]::SetEnvironmentVariable('Path', $$current + ';' + '$$env:USERPROFILE\\.nimbus\\bin', 'User'); \
+				Write-Host 'Added to PATH. Restart your terminal to use nimbus from anywhere.'; \
+			} else { \
+				Write-Host 'Already in PATH.'; \
+			}"; \
+		echo "Installed to $$INSTALL_DIR/$(APP_NAME).exe"; \
+	else \
+		echo "Unknown platform. Copy $(BUILD_DIR)/$(APP_NAME) to a directory in your PATH."; \
+	fi
+
+uninstall:
+	@if [ "$$(uname -s 2>/dev/null)" = "Linux" ] || [ "$$(uname -s 2>/dev/null)" = "Darwin" ]; then \
+		sudo rm -f /usr/local/bin/$(APP_NAME); \
+		echo "Removed /usr/local/bin/$(APP_NAME)"; \
+	elif [ -n "$$USERPROFILE" ]; then \
+		rm -f "$$USERPROFILE/.nimbus/bin/$(APP_NAME).exe"; \
+		echo "Removed $$USERPROFILE/.nimbus/bin/$(APP_NAME).exe"; \
+	fi
 
 clean:
 	rm -rf $(BUILD_DIR) nimbus nimbus.exe
