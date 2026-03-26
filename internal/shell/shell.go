@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -191,6 +192,15 @@ func (s *Shell) cmdRun(args []string) {
 
 	if len(projects) == 0 && s.session.Project != "" {
 		projects = []string{s.session.Project}
+	}
+
+	// If still no projects, prompt the user.
+	if len(projects) == 0 && info.RequiresAuth {
+		projects = s.promptForProjects()
+		if len(projects) == 0 {
+			output.Warn("No projects selected. Aborting.")
+			return
+		}
 	}
 
 	ctx := module.RunContext{
@@ -538,6 +548,64 @@ func (s *Shell) cmdReport(args []string) {
 
 func (s *Shell) cmdWorkspace() {
 	fmt.Printf("\n  Workspace: %s (ID: %d)\n  Session:   %s\n\n", s.ws.Name, s.ws.ID, s.session.Name)
+}
+
+func (s *Shell) promptForProjects() []string {
+	reader := bufio.NewReader(os.Stdin)
+
+	// Check if we have previously discovered projects in the DB.
+	discovered, _ := s.store.ListResources(s.ws.ID, "resourcemanager", "project")
+
+	if len(discovered) > 0 {
+		fmt.Println("\n  Discovered projects:")
+		for i, r := range discovered {
+			fmt.Printf("    [%d] %s\n", i+1, r.Name)
+		}
+		fmt.Printf("    [a] All of the above\n")
+		fmt.Printf("    [m] Enter project IDs manually\n")
+		fmt.Print("\n  Select: ")
+
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(strings.ToLower(input))
+
+		if input == "a" {
+			var projects []string
+			for _, r := range discovered {
+				projects = append(projects, r.Name)
+			}
+			return projects
+		}
+
+		if input != "m" {
+			// Try to parse as comma-separated numbers.
+			var projects []string
+			for _, part := range strings.Split(input, ",") {
+				idx, err := strconv.Atoi(strings.TrimSpace(part))
+				if err == nil && idx >= 1 && idx <= len(discovered) {
+					projects = append(projects, discovered[idx-1].Name)
+				}
+			}
+			if len(projects) > 0 {
+				return projects
+			}
+		}
+	}
+
+	fmt.Print("\n  Enter project ID(s) (comma-separated): ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil
+	}
+
+	var projects []string
+	for _, p := range strings.Split(input, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			projects = append(projects, p)
+		}
+	}
+	return projects
 }
 
 func parseRunArgs(args []string) (flags map[string]string, projects []string, verbose bool, concurrency int) {
