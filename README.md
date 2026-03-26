@@ -25,27 +25,33 @@ A MITRE ATT&CK-aligned GCP pentesting framework written in Go. Single binary, cr
 
 ## Install
 
-### From source
+### Build and install to PATH
 
 ```bash
 git clone https://github.com/0xJosep/nimbus-gcp.git
 cd nimbus-gcp
+make
+```
+
+This builds the binary and installs it to your PATH automatically:
+- **Linux / macOS** — installs to `/usr/local/bin/nimbus`
+- **Windows** — installs to `%USERPROFILE%\.nimbus\bin\nimbus.exe` and adds it to your user PATH
+
+On Windows, restart your terminal after the first install for PATH to take effect.
+
+Alternatively, use the install script (no `make` required):
+
+```bash
+bash install.sh
+```
+
+### Build only (no install)
+
+```bash
 make build
 ```
 
 The binary will be at `build/nimbus`.
-
-### Build and install to PATH
-
-```bash
-# Linux / macOS — installs to /usr/local/bin
-make install
-
-# Any platform (Linux, macOS, Windows) — auto-detects OS and adds to PATH
-bash install.sh
-```
-
-On Windows this installs to `%USERPROFILE%\.nimbus\bin\` and adds it to your user PATH. Restart your terminal after install.
 
 ### Cross-compile
 
