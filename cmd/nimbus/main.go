@@ -19,28 +19,34 @@ import (
 	_ "github.com/user/nimbus/modules/recon/bigquery"
 	_ "github.com/user/nimbus/modules/recon/cloudsql"
 	_ "github.com/user/nimbus/modules/recon/compute"
+	_ "github.com/user/nimbus/modules/recon/dns"
 	_ "github.com/user/nimbus/modules/recon/functions"
 	_ "github.com/user/nimbus/modules/recon/gke"
 	_ "github.com/user/nimbus/modules/recon/iam"
 	_ "github.com/user/nimbus/modules/recon/logging"
 	_ "github.com/user/nimbus/modules/recon/network"
 	_ "github.com/user/nimbus/modules/recon/resourcemanager"
+	_ "github.com/user/nimbus/modules/recon/run"
 	_ "github.com/user/nimbus/modules/recon/secrets"
 	_ "github.com/user/nimbus/modules/recon/storage"
 
 	// Register modules -- privesc.
 	_ "github.com/user/nimbus/modules/privesc/compute"
+	_ "github.com/user/nimbus/modules/privesc/functions"
 	_ "github.com/user/nimbus/modules/privesc/iam"
 
 	// Register modules -- other tactics.
 	_ "github.com/user/nimbus/modules/credential/compute"
 	_ "github.com/user/nimbus/modules/defense_evasion/logging"
+	_ "github.com/user/nimbus/modules/exfil/secrets"
 	_ "github.com/user/nimbus/modules/exfil/storage"
+	_ "github.com/user/nimbus/modules/initial_access/functions"
 	_ "github.com/user/nimbus/modules/initial_access/storage"
 	_ "github.com/user/nimbus/modules/lateral/compute"
 	_ "github.com/user/nimbus/modules/persist/iam"
 
 	// Register modules -- analyze.
+	_ "github.com/user/nimbus/modules/analyze/iam"
 	_ "github.com/user/nimbus/modules/analyze/paths"
 	_ "github.com/user/nimbus/modules/analyze/summary"
 )
