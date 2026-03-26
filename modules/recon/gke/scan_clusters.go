@@ -30,8 +30,7 @@ func (m *ScanClusters) Info() module.Info {
 }
 
 func (m *ScanClusters) Run(ctx module.RunContext) error {
-	if len(ctx.Projects) == 0 {
-		output.Warn("No projects specified.")
+	if projects := module.EnsureProjects(&ctx); len(projects) == 0 {
 		return nil
 	}
 

@@ -31,8 +31,7 @@ func (m *ListPrincipals) Info() module.Info {
 }
 
 func (m *ListPrincipals) Run(ctx module.RunContext) error {
-	if len(ctx.Projects) == 0 {
-		output.Warn("No projects specified. Use --project-ids or set a default project.")
+	if projects := module.EnsureProjects(&ctx); len(projects) == 0 {
 		return nil
 	}
 
