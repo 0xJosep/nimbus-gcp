@@ -13,15 +13,22 @@ A MITRE ATT&CK-aligned GCP pentesting framework written in Go. Single binary, cr
 
 ## Features
 
-- **24 modules** across 8 MITRE ATT&CK tactics (recon, privesc, credential, persist, lateral, exfil, defense-evasion, initial-access)
-- **Attack path engine** — builds a directed graph from enumerated data and overlays 20 known GCP privilege escalation techniques to discover escalation chains automatically
-- **Concurrent scanning** — goroutine-based parallel project scanning across all modules
+- **45 modules** across 10 MITRE ATT&CK tactics
+- **Attack path engine** — directed graph with 20 embedded privesc techniques, auto-discovers escalation chains
+- **CIS Benchmark** — 20 CIS GCP Foundation controls checked offline against collected data
+- **Permission brute-forcing** — test 200+ IAM permissions concurrently against target projects
+- **Delegation chain analysis** — maps multi-hop SA impersonation paths via BFS
+- **Concurrent scanning** — goroutine-based parallel project scanning
+- **Tab completion** — section-by-section dotted module name completion (`recon.[TAB]` → `recon.iam.[TAB]` → `recon.iam.list-principals`)
 - **YAML playbooks** — chain modules into repeatable automated workflows
 - **Structured findings** — every module generates severity-rated findings (CRITICAL/HIGH/MEDIUM/LOW/INFO)
-- **Report generation** — export findings as Markdown or JSON pentest reports
+- **Report generation** — Markdown, JSON, Neo4j Cypher, and Graphviz DOT export
 - **Dual mode** — interactive REPL shell or direct CLI for scripting and CI/CD
-- **Cross-platform** — pure-Go SQLite (no CGO), builds for Linux, macOS, and Windows from any platform
+- **OAuth2 browser flow** — authenticate via browser with auto-refresh tokens
+- **Cross-platform** — pure-Go SQLite (no CGO), builds for Linux, macOS, and Windows
 - **Single binary** — no runtime dependencies, no Python, no pip
+- **Session recording** — JSONL audit trail of all module executions
+- **CI/CD** — GitHub Actions with Goreleaser for automated cross-platform releases
 
 ## Install
 
@@ -74,7 +81,7 @@ Produces binaries for:
 nimbus
 ```
 
-You'll be prompted to create a workspace and select credentials (ADC, service account key, OAuth token, or unauthenticated).
+You'll be prompted to create a workspace and select credentials (ADC, service account key, OAuth browser login, raw token, or unauthenticated).
 
 ### Direct CLI
 
@@ -92,30 +99,56 @@ nimbus run recon.iam.list-principals -p my-project
 # Run with verbose output across multiple projects
 nimbus run recon.compute.scan-instances -p proj1,proj2 -v
 
+# Full enumeration of a project
+nimbus run recon.all -p my-project
+
 # Run a playbook
 nimbus playbook playbooks/full-recon.yaml
 ```
 
+### Tab Completion
+
+Module names auto-complete section by section:
+
+```
+nimbus> rec[TAB]              → recon.
+nimbus> recon.i[TAB]          → recon.iam.
+nimbus> recon.iam.l[TAB]      → list-bindings  list-principals  list-roles
+nimbus> run priv[TAB]         → privesc.
+```
+
+Flags, commands, and subcommands also complete with Tab.
+
 ## Modules
 
-### Recon (12 modules)
+### Recon (20 modules)
 
 | Module | Description |
 |--------|-------------|
+| `recon.all` | Run all recon modules (full enumeration) |
 | `recon.iam.list-principals` | Discover service accounts and their key metadata |
-| `recon.iam.list-bindings` | List IAM policy bindings and flag dangerous roles |
+| `recon.iam.list-roles` | List custom IAM roles, flag dangerous permissions |
+| `recon.iam.list-bindings` | List IAM policy bindings, flag dangerous roles |
+| `recon.iam.bruteforce-permissions` | Brute-force 200+ IAM permissions concurrently |
 | `recon.compute.scan-instances` | Scan VM instances with SA and network details |
+| `recon.compute.scan-metadata` | Check project-level SSH keys, serial port, OS Login |
 | `recon.storage.probe-buckets` | Probe buckets for configuration and access settings |
 | `recon.secrets.scan-secrets` | Discover secrets and optionally read values |
 | `recon.functions.scan-functions` | Scan Cloud Functions for triggers, SAs, ingress |
+| `recon.run.scan-services` | Scan Cloud Run services for ingress, auth, SA |
 | `recon.gke.scan-clusters` | Scan GKE clusters for RBAC, network policy, node config |
 | `recon.network.map-vpcs` | Map VPC networks, subnets, firewall rules, peering |
 | `recon.resourcemanager.list-projects` | Discover all accessible projects in the org |
 | `recon.bigquery.scan-datasets` | Scan BigQuery datasets, tables, access controls |
 | `recon.cloudsql.scan-instances` | Scan Cloud SQL for auth, network, backup config |
 | `recon.logging.scan-sinks` | Scan log sinks and audit logging configuration |
+| `recon.dns.scan-zones` | Scan Cloud DNS zones and enumerate records |
+| `recon.kms.scan-keyrings` | Scan KMS key rings, flag missing rotation |
+| `recon.pubsub.scan-topics` | Scan Pub/Sub topics, flag insecure push endpoints |
+| `recon.scheduler.scan-jobs` | Scan Cloud Scheduler jobs, flag HTTP targets |
+| `recon.orgpolicy.scan-constraints` | Scan org policy constraints, flag missing enforcements |
 
-### Privilege Escalation (4 modules)
+### Privilege Escalation (5 modules)
 
 | Module | Description |
 |--------|-------------|
@@ -123,23 +156,63 @@ nimbus playbook playbooks/full-recon.yaml
 | `privesc.iam.escalate-sa-impersonate` | Generate access token via SA impersonation |
 | `privesc.iam.escalate-setiam-policy` | Modify project IAM policy to grant a role |
 | `privesc.compute.escalate-startup-script` | Inject startup script on a VM for code execution |
+| `privesc.functions.escalate-deploy` | Deploy a Cloud Function as a privileged SA |
 
-### Other Tactics (8 modules)
+### Credential Access (2 modules)
 
 | Module | Description |
 |--------|-------------|
 | `credential.compute.dump-metadata-token` | Retrieve SA token from GCE metadata server |
+| `credential.iam.steal-sa-keys` | List SA keys, flag user-managed keys |
+
+### Persistence (2 modules)
+
+| Module | Description |
+|--------|-------------|
 | `persist.iam.inject-binding` | Add IAM binding for persistent backdoor access |
+| `persist.iam.inject-sa-key` | Create SA key for persistent access |
+
+### Lateral Movement (1 module)
+
+| Module | Description |
+|--------|-------------|
 | `lateral.compute.ssh-via-metadata` | Push SSH key to VM metadata for lateral movement |
+
+### Exfiltration (3 modules)
+
+| Module | Description |
+|--------|-------------|
 | `exfil.storage.siphon-objects` | Download objects from a bucket |
-| `initial-access.storage.bruteforce-buckets` | Brute-force bucket names for public access |
+| `exfil.secrets.dump-values` | Bulk-read all accessible secret values |
+| `exfil.bigquery.siphon-tables` | Download BigQuery table rows |
+
+### Defense Evasion (3 modules)
+
+| Module | Description |
+|--------|-------------|
 | `defense-evasion.logging.disable-sinks` | Disable log sinks to evade detection |
+| `defense-evasion.logging.add-exclusion` | Add log exclusion filters (stealthier) |
+| `defense-evasion.iam.remove-binding` | Remove IAM bindings (cleanup after persistence) |
+
+### Initial Access (2 modules)
+
+| Module | Description |
+|--------|-------------|
+| `initial-access.storage.bruteforce-buckets` | Brute-force bucket names for public access |
+| `initial-access.functions.bruteforce-endpoints` | Brute-force Cloud Function HTTP endpoints |
+
+### Analysis (4 modules)
+
+| Module | Description |
+|--------|-------------|
 | `analyze.paths.attack-paths` | Build attack graph and find escalation chains |
+| `analyze.iam.delegation-chains` | Map multi-hop SA impersonation chains |
+| `analyze.compliance.cis-benchmark` | Run 20 CIS GCP Benchmark controls offline |
 | `analyze.summary.workspace-overview` | Summary of all collected data and findings |
 
 ## Attack Path Engine
 
-After running recon modules, nimbus can automatically discover privilege escalation chains:
+After running recon modules, nimbus automatically discovers privilege escalation chains:
 
 ```
 nimbus> paths
@@ -158,6 +231,52 @@ nimbus> paths
 
 The engine embeds 20 known GCP privilege escalation techniques (NIM-001 through NIM-020) and matches them against discovered permissions.
 
+Export the attack graph for visualization:
+
+```
+nimbus> report graph.cypher    # Neo4j Cypher format
+nimbus> report graph.dot       # Graphviz DOT format
+```
+
+## CIS Benchmark
+
+Run offline compliance checks against collected data:
+
+```
+nimbus> run analyze.compliance.cis-benchmark
+
+  CHECK   STATUS  DESCRIPTION                              AFFECTED
+  ------  ------  ---------------------------------------- --------
+  1.1     FAIL    Avoid use of roles/owner                 user:admin@corp.com
+  4.1     FAIL    Default SA should not be used             vm-prod, vm-staging
+  6.1     FAIL    Cloud SQL should require SSL              db-prod
+  3.6     FAIL    SSH should be restricted (no 0.0.0.0/0)  allow-ssh
+  ...
+
+  Summary: 12/20 passed, 6/20 failed, 2/20 not tested (no data)
+```
+
+## Permission Brute-Forcing
+
+Test which IAM permissions your current identity has:
+
+```
+nimbus> run recon.iam.bruteforce-permissions -p my-project
+
+[*] Testing 200 permissions in 2 batches across 1 project(s)...
+[+] 23 permissions granted on my-project
+
+  SERVICE        PERMISSION                              DANGEROUS
+  -------------- --------------------------------------- ---------
+  iam            iam.serviceAccountKeys.create            YES
+  iam            iam.serviceAccounts.getAccessToken        YES
+  compute        compute.instances.list                    -
+  storage        storage.buckets.list                      -
+  ...
+```
+
+Use `--all-permissions` to test the extended list of ~350 permissions.
+
 ## Auto-Flagging
 
 Every recon module automatically generates findings for common misconfigurations:
@@ -169,8 +288,13 @@ Every recon module automatically generates findings for common misconfigurations
 - GKE clusters with legacy ABAC enabled (CRITICAL)
 - Dangerous IAM roles: owner, editor, securityAdmin (CRITICAL/HIGH)
 - Cloud Functions with ALLOW_ALL ingress (MEDIUM)
+- Cloud Run services with unauthenticated access (HIGH)
 - Disabled log export sinks (HIGH)
 - Storage buckets without public access prevention (MEDIUM)
+- KMS keys without rotation (MEDIUM)
+- Pub/Sub push endpoints using HTTP (HIGH)
+- Org policy constraints not enforced (HIGH)
+- Project-wide SSH keys in metadata (HIGH)
 
 ## Playbooks
 
@@ -183,12 +307,21 @@ description: Complete reconnaissance of target GCP projects
 steps:
   - module: recon.iam.list-principals
   - module: recon.iam.list-bindings
+  - module: recon.iam.list-roles
   - module: recon.compute.scan-instances
   - module: recon.storage.probe-buckets
+  - module: recon.secrets.scan-secrets
+  - module: recon.gke.scan-clusters
 ```
 
 ```bash
 nimbus playbook playbooks/full-recon.yaml
+```
+
+Or use the built-in `recon.all` module to run all recon modules at once:
+
+```bash
+nimbus run recon.all -p my-project
 ```
 
 ## Shell Commands
@@ -202,7 +335,7 @@ nimbus playbook playbooks/full-recon.yaml
 | `findings [severity]` | View security findings |
 | `paths [from <identity>]` | Analyze attack paths |
 | `playbook <file.yaml>` | Run a playbook |
-| `report <output.md>` | Generate a pentest report |
+| `report <output.md>` | Generate a pentest report (md, json, cypher, dot) |
 | `workspace` | Show current workspace info |
 
 ## Authentication
@@ -213,7 +346,8 @@ Nimbus supports 4 credential types:
 |------|----------|
 | **Application Default Credentials** | When you have `gcloud auth` configured |
 | **Service Account Key** | JSON key file from a compromised SA |
-| **OAuth2 Access Token** | Stolen token (e.g., from metadata server) |
+| **OAuth2 Browser Login** | Opens a link, authenticates via Google, gets refresh token |
+| **Raw Access Token** | Stolen token (e.g., from metadata server) |
 | **None** | Unauthenticated modules (bucket brute-force, etc.) |
 
 Multiple credential sets can be stored per workspace and swapped with `creds swap`.
@@ -223,25 +357,27 @@ Multiple credential sets can be stored per workspace and swapped with `creds swa
 ```
 cmd/nimbus/          Entry point (CLI + REPL)
 internal/
-  auth/              Credential management (ADC, SA key, OAuth, none)
+  auth/              Credential management (ADC, SA key, OAuth browser flow, token)
+  config/            Config file support (~/.nimbus/config.yaml)
   db/                SQLite storage (workspaces, sessions, resources, findings, permissions, role_bindings)
-  graph/             Attack path engine (directed graph, BFS pathfinder, privesc analyzer)
-  module/            Module interface, registry, concurrent runner
-  output/            Terminal output, report generation
+  graph/             Attack path engine (directed graph, BFS pathfinder, privesc analyzer, Neo4j/DOT export)
+  module/            Module interface, registry, concurrent runner, project prompt
+  output/            Terminal output, report generation, JSON output
   playbook/          YAML playbook parser
   privesc/           Embedded privilege escalation knowledge base (20 techniques)
-  shell/             Interactive REPL
+  session/           Session recording (JSONL audit trail)
+  shell/             Interactive REPL with tab completion
   workspace/         Engagement isolation
 modules/
-  recon/             Discovery and enumeration
-  privesc/           Privilege escalation
-  credential/        Credential access
-  persist/           Persistence
-  lateral/           Lateral movement
-  exfil/             Data exfiltration
-  initial_access/    Unauthenticated attacks
-  defense_evasion/   Detection avoidance
-  analyze/           Post-collection analysis
+  recon/             Discovery and enumeration (20 modules)
+  privesc/           Privilege escalation (5 modules)
+  credential/        Credential access (2 modules)
+  persist/           Persistence (2 modules)
+  lateral/           Lateral movement (1 module)
+  exfil/             Data exfiltration (3 modules)
+  initial_access/    Unauthenticated attacks (2 modules)
+  defense_evasion/   Detection avoidance (3 modules)
+  analyze/           Post-collection analysis (4 modules)
 ```
 
 ## Adding a Module
@@ -271,8 +407,10 @@ func (m *MyModule) Info() module.Info {
 }
 
 func (m *MyModule) Run(ctx module.RunContext) error {
-    // Your code here. Use ctx.Session for GCP auth,
-    // ctx.Store to persist data, ctx.Findings to emit findings.
+    // Use module.EnsureProjects(&ctx) for project selection.
+    // Use ctx.Session for GCP auth.
+    // Use ctx.Store to persist data.
+    // Use ctx.Findings to emit findings.
     return nil
 }
 ```
