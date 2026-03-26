@@ -188,7 +188,7 @@ func (cs *CredentialStore) saveAndLoad(rec credRecord) (*Session, error) {
 
 func (cs *CredentialStore) listSessions() ([]*Session, error) {
 	rows, err := cs.store.DB.Query(
-		`SELECT id, name, cred_type, email, project FROM sessions WHERE workspace_id = ? ORDER BY id`,
+		`SELECT id, name, cred_type, email, project, cred_data FROM sessions WHERE workspace_id = ? ORDER BY id`,
 		cs.workspaceID,
 	)
 	if err != nil {
@@ -199,11 +199,23 @@ func (cs *CredentialStore) listSessions() ([]*Session, error) {
 	var sessions []*Session
 	for rows.Next() {
 		s := &Session{WorkspaceID: cs.workspaceID}
-		var credType string
-		if err := rows.Scan(&s.ID, &s.Name, &credType, &s.Email, &s.Project); err != nil {
+		var credType, credData string
+		if err := rows.Scan(&s.ID, &s.Name, &credType, &s.Email, &s.Project, &credData); err != nil {
 			return nil, err
 		}
 		s.CredType = CredType(credType)
+
+		// Hydrate credentials from stored data.
+		if credData != "" {
+			var rec credRecord
+			if json.Unmarshal([]byte(credData), &rec) == nil {
+				creds, err := loadCredentials(rec)
+				if err == nil {
+					s.creds = creds
+				}
+			}
+		}
+
 		sessions = append(sessions, s)
 	}
 	return sessions, rows.Err()
