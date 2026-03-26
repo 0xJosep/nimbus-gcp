@@ -122,9 +122,27 @@ func (cs *CredentialStore) createSession(reader *bufio.Reader) (*Session, error)
 
 	case 3:
 		rec.CredType = CredOAuthToken
-		fmt.Print("Access token: ")
-		token, _ := reader.ReadString('\n')
-		rec.RawCred = strings.TrimSpace(token)
+		fmt.Println("\n  [a] Browser login (opens a link to authenticate via Google)")
+		fmt.Println("  [b] Paste a raw access token (e.g. stolen from metadata server)")
+		fmt.Print("\nSelect: ")
+		oauthChoice, _ := reader.ReadString('\n')
+		oauthChoice = strings.TrimSpace(strings.ToLower(oauthChoice))
+
+		if oauthChoice == "b" {
+			fmt.Print("Access token: ")
+			token, _ := reader.ReadString('\n')
+			rec.RawCred = strings.TrimSpace(token)
+		} else {
+			tokenJSON, email, err := OAuthBrowserFlow(nil)
+			if err != nil {
+				return nil, fmt.Errorf("OAuth flow failed: %w", err)
+			}
+			rec.RawCred = tokenJSON
+			rec.Email = email
+			fmt.Print("Project ID (optional): ")
+			proj, _ := reader.ReadString('\n')
+			rec.Project = strings.TrimSpace(proj)
+		}
 
 	default:
 		rec.CredType = CredNone

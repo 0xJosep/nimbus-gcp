@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
-
 )
 
 // CredType defines the supported credential types.
@@ -58,7 +58,7 @@ type credRecord struct {
 	Email    string   `json:"email"`
 	Project  string   `json:"project"`
 	Scopes   []string `json:"scopes"`
-	// For service account: the key JSON. For OAuth: the token string.
+	// For service account: the key JSON. For OAuth: the access token or refresh token JSON.
 	RawCred string `json:"raw_cred,omitempty"`
 }
 
@@ -89,16 +89,33 @@ func loadCredentials(rec credRecord) (*google.Credentials, error) {
 		return creds, nil
 
 	case CredOAuthToken:
-		// For a raw OAuth token, we create a static token source.
-		// This won't auto-refresh but is useful for stolen/metadata tokens.
-		creds, err := google.CredentialsFromJSON(ctx, []byte(fmt.Sprintf(
-			`{"type":"authorized_user","token":"%s"}`, rec.RawCred,
-		)), scopes...)
-		if err != nil {
-			// Fallback: treat as ADC if parsing fails.
-			return nil, fmt.Errorf("oauth token: %w", err)
+		if rec.RawCred == "" {
+			return nil, fmt.Errorf("oauth token is empty")
 		}
-		return creds, nil
+
+		// Try to parse as a stored token JSON (from OAuth2 flow with refresh token).
+		var storedToken oauth2.Token
+		if err := json.Unmarshal([]byte(rec.RawCred), &storedToken); err == nil && storedToken.RefreshToken != "" {
+			// We have a refresh token — create an auto-refreshing token source.
+			conf := &oauth2.Config{
+				ClientID:     oauthClientID,
+				ClientSecret: oauthClientSecret,
+				Endpoint:     google.Endpoint,
+				Scopes:       scopes,
+			}
+			tokenSource := conf.TokenSource(ctx, &storedToken)
+			return &google.Credentials{
+				ProjectID:   rec.Project,
+				TokenSource: tokenSource,
+			}, nil
+		}
+
+		// Fallback: treat as a raw access token (e.g. stolen from metadata server).
+		token := &oauth2.Token{AccessToken: rec.RawCred}
+		return &google.Credentials{
+			ProjectID:   rec.Project,
+			TokenSource: oauth2.StaticTokenSource(token),
+		}, nil
 
 	case CredNone:
 		return nil, nil
