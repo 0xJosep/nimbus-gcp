@@ -4,9 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/chzyer/readline"
 
 	"github.com/user/nimbus/internal/auth"
 	"github.com/user/nimbus/internal/db"
@@ -47,16 +50,104 @@ func New(
 
 // Run starts the interactive shell loop.
 func (s *Shell) Run() {
+	completer := newCompleter(s.registry)
+
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          s.buildPrompt(),
+		AutoComplete:    completer,
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+		HistoryFile:     "",
+	})
+	if err != nil {
+		// Fallback to basic reader if readline fails.
+		s.runBasic()
+		return
+	}
+	defer rl.Close()
+
+	for {
+		rl.SetPrompt(s.buildPrompt())
+		line, err := rl.Readline()
+		if err == readline.ErrInterrupt {
+			continue
+		}
+		if err == io.EOF {
+			fmt.Println("Goodbye.")
+			return
+		}
+		if err != nil {
+			return
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if s.dispatch(line) {
+			return
+		}
+	}
+}
+
+// dispatch handles a single command line. Returns true if the shell should exit.
+func (s *Shell) dispatch(line string) bool {
+	parts := strings.Fields(line)
+	cmd := strings.ToLower(parts[0])
+	args := parts[1:]
+
+	switch cmd {
+	case "help", "?":
+		s.cmdHelp()
+	case "modules", "mods":
+		s.cmdModules(args)
+	case "run", "use":
+		s.cmdRun(args)
+	case "creds":
+		s.cmdCreds(args)
+	case "data":
+		s.cmdData(args)
+	case "findings":
+		s.cmdFindings(args)
+	case "paths":
+		s.cmdPaths(args)
+	case "playbook":
+		s.cmdPlaybook(args)
+	case "report":
+		s.cmdReport(args)
+	case "workspace", "ws":
+		s.cmdWorkspace()
+	case "exit", "quit":
+		fmt.Println("Goodbye.")
+		return true
+	default:
+		runArgs := args
+		if len(runArgs) > 0 && strings.ToLower(runArgs[0]) == "run" {
+			runArgs = runArgs[1:]
+		}
+		if _, ok := s.registry.Get(cmd); ok {
+			s.cmdRun(append([]string{cmd}, runArgs...))
+		} else {
+			output.Error("Unknown command: %s. Type 'help' for available commands.", cmd)
+		}
+	}
+	return false
+}
+
+func (s *Shell) buildPrompt() string {
+	return fmt.Sprintf(
+		output.Bold+output.Cyan+"nimbus"+output.Reset+
+			"("+output.Yellow+"%s"+output.Reset+
+			"/"+output.Green+"%s"+output.Reset+") > ",
+		s.ws.Name, s.session.Name,
+	)
+}
+
+// runBasic is a fallback REPL without tab completion (used if readline init fails).
+func (s *Shell) runBasic() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		prompt := fmt.Sprintf(
-			output.Bold+output.Cyan+"nimbus"+output.Reset+
-				"("+output.Yellow+"%s"+output.Reset+
-				"/"+output.Green+"%s"+output.Reset+") > ",
-			s.ws.Name, s.session.Name,
-		)
-		fmt.Print(prompt)
-
+		fmt.Print(s.buildPrompt())
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println()
@@ -66,48 +157,7 @@ func (s *Shell) Run() {
 		if line == "" {
 			continue
 		}
-
-		parts := strings.Fields(line)
-		cmd := strings.ToLower(parts[0])
-		args := parts[1:]
-
-		switch cmd {
-		case "help", "?":
-			s.cmdHelp()
-		case "modules", "mods":
-			s.cmdModules(args)
-		case "run", "use":
-			s.cmdRun(args)
-		case "creds":
-			s.cmdCreds(args)
-		case "data":
-			s.cmdData(args)
-		case "findings":
-			s.cmdFindings(args)
-		case "paths":
-			s.cmdPaths(args)
-		case "playbook":
-			s.cmdPlaybook(args)
-		case "report":
-			s.cmdReport(args)
-		case "workspace", "ws":
-			s.cmdWorkspace()
-		case "exit", "quit":
-			fmt.Println("Goodbye.")
-			return
-		default:
-			// Strip trailing "run" from args if present.
-			// e.g. "recon.iam.list-principals run -p proj" -> run recon.iam.list-principals -p proj
-			runArgs := args
-			if len(runArgs) > 0 && strings.ToLower(runArgs[0]) == "run" {
-				runArgs = runArgs[1:]
-			}
-			if _, ok := s.registry.Get(cmd); ok {
-				s.cmdRun(append([]string{cmd}, runArgs...))
-			} else {
-				output.Error("Unknown command: %s. Type 'help' for available commands.", cmd)
-			}
-		}
+		s.dispatch(line)
 	}
 }
 

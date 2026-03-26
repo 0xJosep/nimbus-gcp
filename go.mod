@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/bigquery v1.74.0
 	cloud.google.com/go/secretmanager v1.16.0
 	cloud.google.com/go/storage v1.61.3
+	github.com/chzyer/readline v1.5.1
 	golang.org/x/oauth2 v0.36.0
 	google.golang.org/api v0.273.0
 	gopkg.in/yaml.v3 v3.0.1
