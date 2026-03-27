@@ -26,7 +26,8 @@ func (s *Store) SaveResource(r *Resource) error {
 	_, err = s.DB.Exec(
 		`INSERT INTO resources (workspace_id, service, resource_type, project, name, data)
 		 VALUES (?, ?, ?, ?, ?, ?)
-		 ON CONFLICT DO UPDATE SET data = excluded.data, discovered_at = CURRENT_TIMESTAMP`,
+		 ON CONFLICT(workspace_id, service, resource_type, name)
+		 DO UPDATE SET data = excluded.data, project = excluded.project, discovered_at = CURRENT_TIMESTAMP`,
 		r.WorkspaceID, r.Service, r.ResourceType, r.Project, r.Name, string(dataBytes),
 	)
 	return err
