@@ -13,7 +13,8 @@ A MITRE ATT&CK-aligned GCP pentesting framework written in Go. Single binary, cr
 
 ## Features
 
-- **45 modules** across 10 MITRE ATT&CK tactics
+- **57 modules** across 10 MITRE ATT&CK tactics — every [RhinoSecurityLabs GCP privesc technique](https://github.com/RhinoSecurityLabs/GCP-IAM-Privilege-Escalation) included
+- **Full audit command** — `nimbus audit` runs a 9-phase linpeas-style infrastructure sweep with color-coded findings, privesc vectors, and severity scoreboard
 - **Attack path engine** — directed graph with 20 embedded privesc techniques, auto-discovers escalation chains
 - **CIS Benchmark** — 20 CIS GCP Foundation controls checked offline against collected data
 - **Permission brute-forcing** — test 200+ IAM permissions concurrently against target projects
@@ -21,7 +22,7 @@ A MITRE ATT&CK-aligned GCP pentesting framework written in Go. Single binary, cr
 - **Concurrent scanning** — goroutine-based parallel project scanning
 - **Tab completion** — section-by-section dotted module name completion (`recon.[TAB]` → `recon.iam.[TAB]` → `recon.iam.list-principals`)
 - **YAML playbooks** — chain modules into repeatable automated workflows
-- **Structured findings** — every module generates severity-rated findings (CRITICAL/HIGH/MEDIUM/LOW/INFO)
+- **Structured findings** — severity-rated per project (CRITICAL/HIGH/MEDIUM/LOW/INFO)
 - **Report generation** — Markdown, JSON, Neo4j Cypher, and Graphviz DOT export
 - **Dual mode** — interactive REPL shell or direct CLI for scripting and CI/CD
 - **OAuth2 browser flow** — authenticate via browser with auto-refresh tokens
@@ -75,6 +76,15 @@ Produces binaries for:
 
 ## Quick Start
 
+### Full audit (recommended)
+
+```bash
+# Complete infrastructure audit — like linpeas for GCP
+nimbus audit -p my-project
+```
+
+This runs a 9-phase sweep: project discovery, identity & access, compute & containers, data stores, networking, security controls, messaging, privilege escalation analysis, and compliance — then prints a color-coded report with severity scoreboard and verdict.
+
 ### Interactive shell
 
 ```bash
@@ -83,9 +93,19 @@ nimbus
 
 You'll be prompted to create a workspace and select credentials (ADC, service account key, OAuth browser login, raw token, or unauthenticated).
 
+```
+nimbus(workspace/session) > audit
+nimbus(workspace/session) > findings
+nimbus(workspace/session) > paths
+nimbus(workspace/session) > report audit-report.md
+```
+
 ### Direct CLI
 
 ```bash
+# Full audit
+nimbus audit -p my-project
+
 # List all modules
 nimbus modules
 
@@ -99,7 +119,7 @@ nimbus run recon.iam.list-principals -p my-project
 # Run with verbose output across multiple projects
 nimbus run recon.compute.scan-instances -p proj1,proj2 -v
 
-# Full enumeration of a project
+# Full enumeration only (no analysis)
 nimbus run recon.all -p my-project
 
 # Run a playbook
@@ -148,22 +168,36 @@ Flags, commands, and subcommands also complete with Tab.
 | `recon.scheduler.scan-jobs` | Scan Cloud Scheduler jobs, flag HTTP targets |
 | `recon.orgpolicy.scan-constraints` | Scan org policy constraints, flag missing enforcements |
 
-### Privilege Escalation (5 modules)
+### Privilege Escalation (15 modules)
 
-| Module | Description |
-|--------|-------------|
-| `privesc.iam.escalate-sa-key-create` | Create a new key for a target service account |
-| `privesc.iam.escalate-sa-impersonate` | Generate access token via SA impersonation |
-| `privesc.iam.escalate-setiam-policy` | Modify project IAM policy to grant a role |
-| `privesc.compute.escalate-startup-script` | Inject startup script on a VM for code execution |
-| `privesc.functions.escalate-deploy` | Deploy a Cloud Function as a privileged SA |
+All techniques from [RhinoSecurityLabs/GCP-IAM-Privilege-Escalation](https://github.com/RhinoSecurityLabs/GCP-IAM-Privilege-Escalation) are implemented:
 
-### Credential Access (2 modules)
+| Module | Description | Rhino Technique |
+|--------|-------------|-----------------|
+| `privesc.iam.escalate-sa-key-create` | Create a new key for a target SA | `iam.serviceAccountKeys.create` |
+| `privesc.iam.escalate-sa-impersonate` | Generate access token via SA impersonation | `iam.serviceAccounts.getAccessToken` |
+| `privesc.iam.escalate-implicit-delegation` | Chain through intermediary SA to impersonate target | `iam.serviceAccounts.implicitDelegation` |
+| `privesc.iam.escalate-sign-blob` | Sign JWT via signBlob, exchange for access token | `iam.serviceAccounts.signBlob` |
+| `privesc.iam.escalate-sign-jwt` | Sign JWT via signJwt, exchange for access token | `iam.serviceAccounts.signJwt` |
+| `privesc.iam.escalate-sign-blob-gcs` | Generate signed GCS URL via signBlob | `iam.serviceAccounts.signBlob` (GCS) |
+| `privesc.iam.escalate-custom-role` | Add permissions to an existing custom role | `iam.roles.update` |
+| `privesc.iam.escalate-setiam-policy` | Modify project IAM policy to grant a role | `setIamPolicy` |
+| `privesc.compute.escalate-startup-script` | Inject startup script on a VM | `compute.instances.setMetadata` |
+| `privesc.compute.escalate-create-instance` | Create VM with target SA, exfil token | `compute.instances.create` |
+| `privesc.functions.escalate-deploy` | Deploy Cloud Function as privileged SA | `cloudfunctions.functions.create` |
+| `privesc.functions.escalate-update` | Update existing function source code | `cloudfunctions.functions.update` |
+| `privesc.run.escalate-deploy-service` | Deploy Cloud Run service as privileged SA | `run.services.create` |
+| `privesc.cloudbuild.escalate-build` | Create Cloud Build job to exfil SA token | `cloudbuild.builds.create` |
+| `privesc.orgpolicy.weaken-constraints` | Disable org policy constraints | `orgpolicy.policy.set` |
+
+### Credential Access (4 modules)
 
 | Module | Description |
 |--------|-------------|
 | `credential.compute.dump-metadata-token` | Retrieve SA token from GCE metadata server |
 | `credential.iam.steal-sa-keys` | List SA keys, flag user-managed keys |
+| `credential.iam.create-api-key` | Create unrestricted API key for the project |
+| `credential.storage.create-hmac-keys` | Create HMAC keys for S3-compatible storage access |
 
 ### Persistence (2 modules)
 
@@ -201,14 +235,78 @@ Flags, commands, and subcommands also complete with Tab.
 | `initial-access.storage.bruteforce-buckets` | Brute-force bucket names for public access |
 | `initial-access.functions.bruteforce-endpoints` | Brute-force Cloud Function HTTP endpoints |
 
-### Analysis (4 modules)
+### Analysis (5 modules)
 
 | Module | Description |
 |--------|-------------|
+| `analyze.audit.full-audit` | **Full infrastructure audit** (linpeas-style, 9-phase sweep) |
 | `analyze.paths.attack-paths` | Build attack graph and find escalation chains |
 | `analyze.iam.delegation-chains` | Map multi-hop SA impersonation chains |
 | `analyze.compliance.cis-benchmark` | Run 20 CIS GCP Benchmark controls offline |
 | `analyze.summary.workspace-overview` | Summary of all collected data and findings |
+
+## Full Audit (linpeas for GCP)
+
+Run `nimbus audit` for a complete 9-phase infrastructure sweep:
+
+```
+$ nimbus audit -p my-project
+
+╔══════════════════════════════════════════════════════════════╗
+║              GCP Infrastructure Audit                        ║
+║              Like linpeas, but for the cloud                 ║
+╚══════════════════════════════════════════════════════════════╝
+
+══════════════════════════════════════════════════════════════
+  🔍  Phase 1/9: PROJECT DISCOVERY
+══════════════════════════════════════════════════════════════
+  [OK] recon.resourcemanager.list-projects     230ms
+
+  👤  Phase 2/9: IDENTITY & ACCESS
+  [OK] recon.iam.list-principals               180ms 2 finding(s)
+  [OK] recon.iam.list-roles                    420ms 1 finding(s)
+  [OK] recon.iam.list-bindings                 310ms 5 finding(s)
+  [OK] recon.iam.bruteforce-permissions        2.1s  3 finding(s)
+
+  🖥️  Phase 3/9: COMPUTE & CONTAINERS
+  💾  Phase 4/9: DATA STORES
+  🌐  Phase 5/9: NETWORKING & DNS
+  🛡️  Phase 6/9: SECURITY CONTROLS
+  📡  Phase 7/9: MESSAGING & SCHEDULING
+  ⚡  Phase 8/9: PRIVILEGE ESCALATION ANALYSIS
+  📋  Phase 9/9: COMPLIANCE CHECK
+
+═══════════════ AUDIT RESULTS ═══════════════
+
+  Audit Duration:  47s
+  Modules Run:     24 (22 OK, 0 failed, 2 skipped)
+  Resources:       142 across 12 services
+  Findings:        31 total
+
+═══════════ CRITICAL & HIGH FINDINGS ═══════════
+
+  my-project (12)
+    ✗ [CRITICAL] Cloud SQL public IP without SSL (db-prod)
+    ✗ [HIGH] Dangerous role: roles/editor (user:dev@corp.com)
+
+═══════════ PRIVILEGE ESCALATION VECTORS ═══════════
+
+  [NIM-001] SA Key Creation (CRITICAL)
+  [NIM-006] Project IAM Policy Modification (CRITICAL)
+
+═══════════ SEVERITY SCOREBOARD ═══════════
+
+  CRITICAL    3 ███
+  HIGH        8 ████████
+  MEDIUM      7 ▓▓▓▓▓▓▓
+  LOW         5 ░░░░░
+
+═══════════ VERDICT ═══════════
+
+  ⚠  CRITICAL ISSUES FOUND — immediate remediation required
+```
+
+The audit runs every recon module, brute-forces permissions, analyzes privesc paths, checks CIS compliance, and generates a prioritized report — all in one command.
 
 ## Attack Path Engine
 
@@ -328,11 +426,12 @@ nimbus run recon.all -p my-project
 
 | Command | Description |
 |---------|-------------|
+| `audit` | **Full infrastructure audit** (9-phase linpeas-style sweep) |
 | `modules [search]` | List or search modules by name, tactic, or service |
 | `run <module> [flags]` | Execute a module |
 | `creds [swap\|info]` | Manage credentials |
 | `data [service]` | View enumerated resources |
-| `findings [severity]` | View security findings |
+| `findings [severity]` | View security findings grouped by project |
 | `paths [from <identity>]` | Analyze attack paths |
 | `playbook <file.yaml>` | Run a playbook |
 | `report <output.md>` | Generate a pentest report (md, json, cypher, dot) |
@@ -369,15 +468,15 @@ internal/
   shell/             Interactive REPL with tab completion
   workspace/         Engagement isolation
 modules/
-  recon/             Discovery and enumeration (20 modules)
-  privesc/           Privilege escalation (5 modules)
-  credential/        Credential access (2 modules)
+  recon/             Discovery and enumeration (21 modules)
+  privesc/           Privilege escalation — all Rhino Security techniques (15 modules)
+  credential/        Credential access (4 modules)
   persist/           Persistence (2 modules)
   lateral/           Lateral movement (1 module)
   exfil/             Data exfiltration (3 modules)
   initial_access/    Unauthenticated attacks (2 modules)
   defense_evasion/   Detection avoidance (3 modules)
-  analyze/           Post-collection analysis (4 modules)
+  analyze/           Audit, attack paths, compliance, delegation chains (5 modules)
 ```
 
 ## Adding a Module
