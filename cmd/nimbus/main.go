@@ -36,13 +36,17 @@ import (
 	_ "github.com/user/nimbus/modules/recon/storage"
 
 	// Register modules -- privesc.
+	_ "github.com/user/nimbus/modules/privesc/cloudbuild"
 	_ "github.com/user/nimbus/modules/privesc/compute"
 	_ "github.com/user/nimbus/modules/privesc/functions"
 	_ "github.com/user/nimbus/modules/privesc/iam"
+	_ "github.com/user/nimbus/modules/privesc/orgpolicy"
+	_ "github.com/user/nimbus/modules/privesc/run"
 
 	// Register modules -- other tactics.
 	_ "github.com/user/nimbus/modules/credential/compute"
 	_ "github.com/user/nimbus/modules/credential/iam"
+	_ "github.com/user/nimbus/modules/credential/storage"
 	_ "github.com/user/nimbus/modules/defense_evasion/iam"
 	_ "github.com/user/nimbus/modules/defense_evasion/logging"
 	_ "github.com/user/nimbus/modules/exfil/bigquery"
