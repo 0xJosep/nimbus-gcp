@@ -7,7 +7,8 @@ import (
 )
 
 // Colors for terminal output.
-const (
+// These are var (not const) so they can be cleared by DisableColor().
+var (
 	Reset  = "\033[0m"
 	Red    = "\033[31m"
 	Green  = "\033[32m"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,14 +13,18 @@ import (
 	"github.com/user/nimbus/internal/module"
 	"github.com/user/nimbus/internal/output"
 	"github.com/user/nimbus/internal/playbook"
+	"github.com/user/nimbus/internal/proxy"
 	"github.com/user/nimbus/internal/shell"
 	"github.com/user/nimbus/internal/workspace"
 
 	// Register modules -- recon.
 	_ "github.com/user/nimbus/modules/recon/all"
+	_ "github.com/user/nimbus/modules/recon/artifactregistry"
 	_ "github.com/user/nimbus/modules/recon/bigquery"
+	_ "github.com/user/nimbus/modules/recon/cloudbuild"
 	_ "github.com/user/nimbus/modules/recon/cloudsql"
 	_ "github.com/user/nimbus/modules/recon/compute"
+	_ "github.com/user/nimbus/modules/recon/dataflow"
 	_ "github.com/user/nimbus/modules/recon/dns"
 	_ "github.com/user/nimbus/modules/recon/functions"
 	_ "github.com/user/nimbus/modules/recon/gke"
@@ -34,11 +39,14 @@ import (
 	_ "github.com/user/nimbus/modules/recon/scheduler"
 	_ "github.com/user/nimbus/modules/recon/secrets"
 	_ "github.com/user/nimbus/modules/recon/storage"
+	_ "github.com/user/nimbus/modules/recon/workloadidentity"
 
 	// Register modules -- privesc.
 	_ "github.com/user/nimbus/modules/privesc/cloudbuild"
+	_ "github.com/user/nimbus/modules/privesc/composer"
 	_ "github.com/user/nimbus/modules/privesc/compute"
 	_ "github.com/user/nimbus/modules/privesc/functions"
+	_ "github.com/user/nimbus/modules/privesc/gke"
 	_ "github.com/user/nimbus/modules/privesc/iam"
 	_ "github.com/user/nimbus/modules/privesc/orgpolicy"
 	_ "github.com/user/nimbus/modules/privesc/run"
@@ -50,22 +58,37 @@ import (
 	_ "github.com/user/nimbus/modules/defense_evasion/iam"
 	_ "github.com/user/nimbus/modules/defense_evasion/logging"
 	_ "github.com/user/nimbus/modules/exfil/bigquery"
+	_ "github.com/user/nimbus/modules/exfil/cloudsql"
 	_ "github.com/user/nimbus/modules/exfil/secrets"
 	_ "github.com/user/nimbus/modules/exfil/storage"
 	_ "github.com/user/nimbus/modules/initial_access/functions"
 	_ "github.com/user/nimbus/modules/initial_access/storage"
 	_ "github.com/user/nimbus/modules/lateral/compute"
+	_ "github.com/user/nimbus/modules/lateral/functions"
+	_ "github.com/user/nimbus/modules/lateral/gke"
+	_ "github.com/user/nimbus/modules/persist/compute"
 	_ "github.com/user/nimbus/modules/persist/iam"
 
 	// Register modules -- analyze.
 	_ "github.com/user/nimbus/modules/analyze/audit"
 	_ "github.com/user/nimbus/modules/analyze/compliance"
+	_ "github.com/user/nimbus/modules/analyze/diff"
 	_ "github.com/user/nimbus/modules/analyze/iam"
+	_ "github.com/user/nimbus/modules/analyze/risk"
+	_ "github.com/user/nimbus/modules/analyze/terraform"
+	_ "github.com/user/nimbus/modules/analyze/whatcanido"
 	_ "github.com/user/nimbus/modules/analyze/paths"
 	_ "github.com/user/nimbus/modules/analyze/summary"
+	_ "github.com/user/nimbus/modules/analyze/terraform"
 )
 
 func main() {
+	// Auto-detect color support (disables color when piped).
+	output.DetectColor()
+
+	// Parse and strip global flags before dispatching subcommands.
+	os.Args = parseGlobalFlags(os.Args)
+
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "audit":
@@ -110,7 +133,12 @@ func cliHelp() {
   nimbus version                      Show version
   nimbus help                         Show this help
 
-Flags:
+Global Flags:
+  --no-color                          Disable colored output
+  --proxy <url>                       Route HTTP traffic through a proxy
+  --rate-limit <N>                    Max requests per second (0 = unlimited)
+
+Module Flags:
   -p, --project-ids <p1,p2>          Target GCP projects
   -v, --verbose                       Verbose output
   --concurrency <N>                   Parallel project scanning (default: 5)
@@ -318,6 +346,38 @@ func parseArgs(args []string) (flags map[string]string, projects []string, verbo
 		}
 	}
 	return
+}
+
+// parseGlobalFlags scans args for global flags (--no-color, --proxy, --rate-limit),
+// applies them, and returns the remaining args with those flags stripped out.
+func parseGlobalFlags(args []string) []string {
+	var remaining []string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--no-color":
+			output.DisableColor()
+		case "--proxy":
+			if i+1 < len(args) {
+				i++
+				if err := proxy.SetProxy(args[i]); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+				}
+			}
+		case "--rate-limit":
+			if i+1 < len(args) {
+				i++
+				n, err := strconv.Atoi(args[i])
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: invalid rate-limit %q\n", args[i])
+				} else {
+					proxy.SetRateLimit(n)
+				}
+			}
+		default:
+			remaining = append(remaining, args[i])
+		}
+	}
+	return remaining
 }
 
 const banner = `
