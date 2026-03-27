@@ -123,6 +123,8 @@ func (s *Shell) dispatch(line string) bool {
 		s.cmdReport(args)
 	case "workspace", "ws":
 		s.cmdWorkspace()
+	case "audit":
+		s.cmdRun(append([]string{"analyze.audit.full-audit"}, args...))
 	case "exit", "quit":
 		fmt.Println("Goodbye.")
 		return true
@@ -170,6 +172,7 @@ func (s *Shell) runBasic() {
 func (s *Shell) cmdHelp() {
 	fmt.Println(`
   Commands:
+    audit                    Full GCP infrastructure audit (linpeas-style)
     modules [search]         List or search modules (by name, tactic, or service)
     run <module> [flags]     Execute a module
     creds [swap|info]        Manage credentials

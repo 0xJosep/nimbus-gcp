@@ -74,7 +74,7 @@ func (c *nimbusCompleter) Do(line []rune, pos int) ([][]rune, int) {
 
 func (c *nimbusCompleter) completeCommands(prefix string) ([][]rune, int) {
 	commands := []string{
-		"modules", "run", "creds", "data", "findings",
+		"audit", "modules", "run", "creds", "data", "findings",
 		"paths", "playbook", "report", "workspace", "help", "exit",
 	}
 

@@ -58,6 +58,7 @@ import (
 	_ "github.com/user/nimbus/modules/persist/iam"
 
 	// Register modules -- analyze.
+	_ "github.com/user/nimbus/modules/analyze/audit"
 	_ "github.com/user/nimbus/modules/analyze/compliance"
 	_ "github.com/user/nimbus/modules/analyze/iam"
 	_ "github.com/user/nimbus/modules/analyze/paths"
@@ -67,6 +68,9 @@ import (
 func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "audit":
+			cliRun(append([]string{"analyze.audit.full-audit"}, os.Args[2:]...))
+			return
 		case "run":
 			cliRun(os.Args[2:])
 			return
@@ -99,6 +103,7 @@ func cliHelp() {
 	fmt.Println(banner)
 	fmt.Println(`Usage:
   nimbus                              Launch interactive shell
+  nimbus audit [flags]               Full GCP infrastructure audit (linpeas-style)
   nimbus run <module> [flags]         Execute a module directly
   nimbus playbook <file.yaml>         Run a playbook
   nimbus modules [search]             List available modules
