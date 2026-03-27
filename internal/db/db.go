@@ -70,7 +70,6 @@ func (s *Store) migrate() error {
 			data TEXT DEFAULT '{}',
 			discovered_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_resources_unique ON resources(workspace_id, service, resource_type, name)`,
 		`CREATE INDEX IF NOT EXISTS idx_resources_service ON resources(workspace_id, service, resource_type)`,
 		`CREATE TABLE IF NOT EXISTS findings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,9 +103,15 @@ func (s *Store) migrate() error {
 	}
 
 	// Clean up duplicate resources from older versions that lacked the unique constraint.
+	// This MUST run before creating the unique index.
 	s.DB.Exec(`DELETE FROM resources WHERE id NOT IN (
 		SELECT MIN(id) FROM resources GROUP BY workspace_id, service, resource_type, name
 	)`)
+
+	// Now safe to create the unique index.
+	if _, err := s.DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resources_unique ON resources(workspace_id, service, resource_type, name)`); err != nil {
+		return fmt.Errorf("create unique index: %w", err)
+	}
 
 	return nil
 }
