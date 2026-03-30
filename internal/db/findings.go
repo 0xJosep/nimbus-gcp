@@ -94,3 +94,9 @@ func (s *Store) CountFindingsBySeverity(workspaceID int64) (map[string]int, erro
 	}
 	return counts, rows.Err()
 }
+
+// ClearFindings deletes all findings for a workspace.
+func (s *Store) ClearFindings(workspaceID int64) error {
+	_, err := s.DB.Exec(`DELETE FROM findings WHERE workspace_id = ?`, workspaceID)
+	return err
+}

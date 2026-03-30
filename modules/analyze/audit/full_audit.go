@@ -139,6 +139,9 @@ func (m *FullAudit) Run(ctx module.RunContext) error {
 		return nil
 	}
 
+	// Clear previous findings so the report only contains results from this audit.
+	ctx.Store.ClearFindings(ctx.Workspace)
+
 	fmt.Printf(auditBanner, output.Cyan+output.Bold, output.Reset)
 	fmt.Println()
 
